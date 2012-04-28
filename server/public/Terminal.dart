@@ -1,3 +1,5 @@
+
+//
 class Terminal {
 
   final cmdLineContainer;
@@ -17,8 +19,7 @@ class Terminal {
 			'help': helpCommand,
 			'auth': authCommand,
 			'info': infoCommand,
-			'time': timeCommand,	
-			'quit': quitCommand,
+			'clear': clearCommand
     };
     
     var history = [];
@@ -98,7 +99,7 @@ class Terminal {
           cmdline.trim();
           args = cmdline.split(' ');
           cmd = args[0].toLowerCase();
-          args = args.removeRange(0, 1);
+          args.removeRange(0, 1);
         }
         
         if (CMDS[cmd] is Function) {
@@ -112,13 +113,78 @@ class Terminal {
     }, false);
   }
 	// Redis Commands
-	getCommand(var cmd, var args) {}
-	setCommand(var cmd, var args) {}
-	getSetCommand(var cmd, var args) {}
-	authCommand(var cmd, var args) {}
-	infoCommand(var cmd, var args) {}
-	timeCommand(var cmd, var args) {}
-	quitCommand(var cmd, var args) {}
+	getCommand(var cmd, var args) {
+	  if (args.length != 1) {
+      var text = "<div><span>ERR wrong number of arguments for 'get' command</span></div>";
+      outputText(text);
+    } else {
+      
+    }
+	}
+	setCommand(var cmd, var args) {
+	  if (args.length != 2) {
+	    var text = "<div><span>ERR wrong number of arguments for 'set' command</span></div>";
+	    outputText(text);
+	  } else {
+	   Map a = new Map();
+	   a['cmd'] ='set';
+	   a['args'] = args;
+	   JsonObject o = new JsonObject.fromMap(a);
+	  
+	   // send stuff
+	  
+	   StringBuffer sb = new StringBuffer();
+	   sb.add('<span>');
+	   sb.add('OK');
+	   sb.add('</span>');
+	 
+	   outputText(sb.toString());
+	  }
+	}
+	
+	outputText(String text) {
+	  output.insertAdjacentElement('beforeEnd', new Element.html(text));
+	}
+	
+	getSetCommand(var cmd, var args) {
+	  if (args.length != 2) {
+      var text = "<div><span>ERR wrong number of arguments for 'getset' command</span></div>";
+      outputText(text);
+    } else {
+     Map a = new Map();
+     a['cmd'] ='set';
+     a['args'] = args;
+     JsonObject o = new JsonObject.fromMap(a);
+    
+     // send stuff
+    
+     // Return value
+     StringBuffer sb = new StringBuffer();
+    
+   
+     outputText(sb.toString());
+    }
+	}
+	authCommand(var cmd, var args) {
+	  if (args.length != 1) {
+      var text = "<div><span>ERR wrong number of arguments for 'auth' command</span></div>";
+      outputText(text);
+    } else {
+      
+    }
+	}
+	infoCommand(var cmd, var args) {
+	  if (args.length != 0) {
+      var text = "<div><span>ERR wrong number of arguments for 'info' command</span></div>";
+      outputText(text);
+    } else {
+      
+    }
+	}
+	
+	clearCommand(var cmd, var args) {
+	  output.innerHTML = '';
+	}
 
 	helpCommand(var cmd, var args) {
 		StringBuffer sb = new StringBuffer();
@@ -127,6 +193,6 @@ class Terminal {
 			sb.add('${k}<br/>');
 		});
 		sb.add('</div>');
-		output.insertAdjacentHTML('beforeEnd', sb.toString());
+		outputText(sb.toString());
 	}
 }

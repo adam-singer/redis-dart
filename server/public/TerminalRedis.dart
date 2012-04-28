@@ -1,8 +1,12 @@
 #import('dart:core');
 #import('dart:html');
+#import("dart:json");
+
 //#import('dart:dom', prefix:"dom");
 //#import('dart:htmlimpl', prefix:"htmlimpl");
+#source('../../third_party/dartwatch-JsonObject/JsonObject.dart');
 #source('Terminal.dart');
+
 // #source('Commands.dart');
 class TerminalRedis {
 
