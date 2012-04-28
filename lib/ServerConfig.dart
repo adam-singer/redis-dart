@@ -1,3 +1,5 @@
+#library("ServerConfig");
+
 class ServerConfig{
   String host;
   int port;
