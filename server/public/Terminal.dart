@@ -119,7 +119,7 @@ class Terminal {
     a['cmd'] = 'get';
     a['args'] = args;
     var o = JSON.stringify(a);
-    var request = sendRequest("POST", "http://localhost:8082/exec", o, processResponse, processResponse);
+    var request = sendRequest("POST", "/exec", o, processResponse, processResponse);
     return request;
   }
   
@@ -203,7 +203,7 @@ class Terminal {
     
     request.open(method, url, true);
     request.setRequestHeader('Content-Type', 'application/json;charset=UTF=8');
-    request.send();
+    request.send(data);
     return request;
   }
 	

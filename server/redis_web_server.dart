@@ -14,7 +14,7 @@ main() {
   CrimsonModule sampleModule = new CrimsonModule(server);
   sampleModule.handlers
                     .addEndpoint(new Favicon("./test/favicon.ico"))                   
-                    .addFilter(new CookieSession())
+                    //.addFilter(new CookieSession())
                     //.addFilter(new PostDataFilter())
                     //.addEndpoint(new Route("/hello","GET",sayHello))
                     .addEndpoint(new Route("/exec","POST",execRedis))
