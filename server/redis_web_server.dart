@@ -5,6 +5,7 @@
 #import("dart:io");
 #import("dart:json");
 #import("../lib/redis.dart", prefix:"redis");
+//#import("../lib/redis.dart");
 #import("dart:utf");
 ///Simple test server
 main() {
@@ -43,7 +44,7 @@ Future execRedis(HttpRequest req,HttpResponse res,var data) {
 //  req.endD
   
   Map m = new Map();
-  m["result"] = "some cool result";
+  //m["result"] = "some cool result";
   
   redis.Utils.getLogger().debug("execRedis: data = $data");
   
@@ -51,22 +52,63 @@ Future execRedis(HttpRequest req,HttpResponse res,var data) {
   //redis.Utils.getLogger().debug("clientData: data = ${clientData.toString()}");
   
   sendBackJson() {
-  var s = JSON.stringify(m);
-  res.outputStream.writeString(s);
+  //var s = JSON.stringify(m);
+  //res.outputStream.writeString(s);
   
   
   req.inputStream.onData = () {
     //int a = req.inputStream.available();
+    StringBuffer strBuffer = new StringBuffer();
     while (req.inputStream.available() > 0) {
       int a = req.inputStream.available();
       List buff = new List(a);
       req.inputStream.readInto(buff);
       print(buff);
       String dec = decodeUtf8(buff);
-      print ("dec = ${dec}"); // dec has the posted message. 
+      strBuffer.add(dec);
+      print ("command = ${dec}"); // dec has the posted message. 
     }
     
-    completer.complete(null);
+    var commands = JSON.parse(strBuffer.toString());
+    // command = {"cmd":"get","args":["l","l"]}
+    String cmd = commands["cmd"];
+    redis.Connection conn;
+    switch(cmd) {
+      case "get":
+        conn = new redis.Connection();
+        conn.connect().then((connected) {
+          if (connected == true) {
+            conn.SendCommand('GET', commands["args"]).then((ret) {
+              m["result"] = ret[0];
+              var retStr = JSON.stringify(m);
+              
+              res.outputStream.writeString(retStr);
+              completer.complete(null);
+            });
+          }
+        });
+        
+        break;
+        
+      case "set":
+        conn = new redis.Connection();
+        conn.connect().then((connected) {
+          if (connected == true) {
+            conn.SendCommand('SET', commands["args"]).then((ret) {
+              m["result"] = ret;
+              var retStr = JSON.stringify(m);
+              
+              res.outputStream.writeString(retStr);
+              completer.complete(null);
+            });
+          }
+        });
+        break;
+    };
+    
+   
+    // when we are ready call this completer
+    //completer.complete(null);
   };
   //completer.complete(null);
   };
