@@ -1,4 +1,4 @@
-class ServerConfig{
+class ServerConfig {
   String host;
   int port;
   int db;
