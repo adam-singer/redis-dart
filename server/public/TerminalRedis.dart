@@ -4,7 +4,7 @@
 
 //#import('dart:dom', prefix:"dom");
 //#import('dart:htmlimpl', prefix:"htmlimpl");
-#source('../../third_party/dartwatch-JsonObject/JsonObject.dart');
+//#source('../../third_party/dartwatch-JsonObject/JsonObject.dart');
 #source('Terminal.dart');
 
 // #source('Commands.dart');
