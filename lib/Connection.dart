@@ -1,8 +1,3 @@
-#library('Connection');
-#import("dart:io");
-#import("dart:utf");
-#import("ServerConfig.dart");
-
 // Char constants
 int CR = 13;
 int LF = 10;
@@ -35,7 +30,7 @@ class Connection {
     skipCount = 0;
   }
   
-  set onReceiveLine(void callback(ByteArray line)) {
+  set onReceiveLine(void callback(String line, Function nextLineSizeIs)) {
     _onReceiveLine = callback;
   }
 
@@ -61,7 +56,7 @@ class Connection {
    * so if we find CRLF in the middle we can skip because we know is not the end of
    * the logical Regis line. 
    */
-  void nextLineSizeIs(int size) {
+  void _nextLineSizeIs(int size) {
     if(receivedBytesCount > 0)
       throw new Exception('You should not call nextLineSizeIs if there are pending bytes on the buffer for next line.');
     skipCount = size;
@@ -73,10 +68,15 @@ class Connection {
    */
   _onData() {
     List currentChunk = socket.inputStream.read(socket.available());
-    _onDataChunk(currentChunk);
+    handleDataChunk(currentChunk);
   }
   
-  _onDataChunk(List currentChunk) {
+  /**
+   * It deals with data chunks received.
+   *
+   * Visible for testing only! Please, do not call it!
+   */
+  handleDataChunk(List currentChunk) {
     
     bool found;
     do {
@@ -123,7 +123,7 @@ class Connection {
           currentChunk = [];
         }
         
-        _onReceiveLine(line);
+        _onReceiveLine(decodeUtf8(line), this._nextLineSizeIs);
       }
     } while(found);
     
@@ -212,35 +212,4 @@ class Connection {
     
     return completer.future;
   }
-}
-
-assertEquals(a, b) {
-  if(a!=b)
-    throw new Exception("$a !== $b");
-  print("Assert ok!");
-}
-
-void main() {
-  Connection conn =  new Connection();
-  List<String> expected = [
-    'line1',
-    'startline2 endline2',
-    '\n',
-    'lineA\r\nlineB',
-    'lineA',
-    'lineB'
-  ];
-  int expectedIdx = 0;
-  conn.onReceiveLine = (ByteArray bline) {
-    String line = decodeUtf8(bline);
-    assertEquals(line, expected[expectedIdx++]);
-  };
-  conn._onDataChunk(encodeUtf8('line1\r\nstartline2'));
-  conn._onDataChunk(encodeUtf8(' endline2\r'));
-  conn._onDataChunk(encodeUtf8('\n\n'));
-  conn._onDataChunk(encodeUtf8('\r\n'));
-  conn.nextLineSizeIs(12);
-  conn._onDataChunk(encodeUtf8('lineA\r\nlineB\r\n'));
-  conn._onDataChunk(encodeUtf8('lineA\r\nlineB\r\n'));
-  assertEquals(expectedIdx, expected.length);
 }
