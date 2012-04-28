@@ -6,8 +6,38 @@ void main() {
   int lastNextLineSizeIsCallsCount = 0;
   int lastCallbacksCount = 0; 
   int callbacksCount = 0;
+  List lastSentBytes = null;
+  expectNotToSend() {
+    if(lastSentBytes != null) {
+      String sentString = decodeUtf8(lastSentBytes);
+      throw 'Expected not to send, but got: ${sentString}';
+    } else {
+      print("Expectation OK: not to send");
+    }
+  }
+  expectToSend(String actual) {
+    if(lastSentBytes == null)
+      throw "No bytes sent!";
+    String expected = decodeUtf8(lastSentBytes);
+    if("${actual}" != "${expected}")
+      throw "${actual} != ${expected}";
+    else
+      print("Expectation OK: sent correct bytes");
+    lastSentBytes = null;
+  }
   Utils.setVerboseState();
-  Decoder decoder = new Decoder();
+  
+  
+  Future<int> fakeSendBytes(List bytes) {
+    if(lastSentBytes != null) {
+      String sentString = decodeUtf8(lastSentBytes);
+      throw 'There are bytes in the test buffer that were not expected: ${sentString}';
+    }
+    lastSentBytes = bytes;
+    Completer<int> completer = new Completer<int>();
+    completer.complete(bytes.length);
+    return completer.future;
+  };
   Function nextLineSizeIsFuncBuilder(int expectedSize) {
     return (int size) {
       nextLineSizeIsCallsCount++;
@@ -24,7 +54,7 @@ void main() {
       if("${actual}" != "${expected}")
         throw "${actual} != ${expected}";
       else
-        print("Expectation OK: ${actual} == ${expected}");
+        print("Expectation OK: callback called correctly");
     };
   }
   Function expectCallbackCountIncrease() {
@@ -42,18 +72,27 @@ void main() {
       print("Expectation OK: Callback called");
   }
   
+  // Building the encoder/decoder
+  EncoderDecoder decoder = new EncoderDecoder();
+  decoder.sendBytes = fakeSendBytes;
+  
   // Sending tree request to exercise queuing
-  decoder.sendRequest(['request1']).then(futureCallbackBuilder(true));
+  decoder.sendRequest(['SET','mykey','myvalue']).then(futureCallbackBuilder(true));
+  expectToSend('*3\r\n\$3\r\nSET\r\n\$5\r\nmykey\r\n\$7\r\nmyvalue\r\n');
   decoder.sendRequest(['request2']).then(futureCallbackBuilder(['my spaced string']));
+  expectNotToSend();
   decoder.sendRequest(['request3']).then(futureCallbackBuilder(['World','Hello','bar','foo']));
+  expectNotToSend();
   
   decoder.handleReceivedLine('+OK', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
+  expectToSend('*1\r\n\$8\r\nrequest2\r\n');
   
   decoder.handleReceivedLine('*1', nextLineSizeIsFailIfCalled);
   decoder.handleReceivedLine('\$16', nextLineSizeIsFuncBuilder(16)); expectNextLineSizeIsCallsCountIncrease();
   decoder.handleReceivedLine('my spaced string', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
+  expectToSend('*1\r\n\$8\r\nrequest3\r\n');
   
   decoder.handleReceivedLine('*4', nextLineSizeIsFailIfCalled);
   decoder.handleReceivedLine('\$5', nextLineSizeIsFuncBuilder(5)); expectNextLineSizeIsCallsCountIncrease();
@@ -65,154 +104,31 @@ void main() {
   decoder.handleReceivedLine('\$3', nextLineSizeIsFuncBuilder(3)); expectNextLineSizeIsCallsCountIncrease();
   decoder.handleReceivedLine('foo', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
+  expectNotToSend();
   
   // Corner cases
-  decoder.sendRequest(['request4']).then(futureCallbackBuilder([null]));
+  // À = 2 bytes in UTF8
+  decoder.sendRequest(['request4','À']).then(futureCallbackBuilder([null]));
+  expectToSend('*2\r\n\$8\r\nrequest4\r\n\$2\r\nÀ\r\n');
   decoder.handleReceivedLine('\$-1', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
   
   decoder.sendRequest(['request5']).then(futureCallbackBuilder([null]));
+  expectToSend('*1\r\n\$8\r\nrequest5\r\n');
   decoder.handleReceivedLine('*1', nextLineSizeIsFailIfCalled);
   decoder.handleReceivedLine('\$-1', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
   
   decoder.sendRequest(['request6']).handleException(futureCallbackBuilder('Exception: remote error ERROR'));
+  expectToSend('*1\r\n\$8\r\nrequest6\r\n');
   decoder.handleReceivedLine('-ERROR', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
   
   // Problems in communication
-  decoder.sendRequest(['request5']).handleException(futureCallbackBuilder('Exception: Unexpected line received: ?haha'));
+  decoder.sendRequest(['request7']).handleException(futureCallbackBuilder('Exception: Unexpected line received: ?haha'));
+  expectToSend('*1\r\n\$8\r\nrequest7\r\n');
   decoder.handleReceivedLine('*1', nextLineSizeIsFailIfCalled);
   decoder.handleReceivedLine('?haha', nextLineSizeIsFailIfCalled);
   expectCallbackCountIncrease();
   
-}
-
-class Request {
-  Completer<Object> completer;
-  List<String> params;
-  Request(this.completer, this.params);
-}
-
-class Decoder {
-  int _state;
-  int _argsLeft;
-  List<String> _args;
-  List<Request> _requestQueue;
-  final int START = 0;
-  final int GET_NEXT_ARGUMENT = 1;
-  final int GET_NEXT_ARGUMENT_CONTENT = 2;
-  Decoder() {
-    _state = START;
-    _argsLeft = 0;
-    _args = [];
-    _requestQueue = [];
-  }
-  
-  Request _popAndEndFirstRequest() {
-    var request = _requestQueue[0];
-    _requestQueue.removeRange(0, 1);
-    if(_requestQueue.length > 0)
-      _startNextRequest();
-    return request;
-  }
-  _completeFirstRequest(Object response) {
-    _popAndEndFirstRequest().completer.complete(response);
-  }
-  
-  _completeExceptionFirstRequest(Exception exception) {
-    _popAndEndFirstRequest().completer.completeException(exception);
-  }
-  
-  handleReceivedLine(String line, Function nextLineSizeIs) {
-    // If no request was received
-    if(_requestQueue.length == 0) {
-      Utils.getLogger().error("No request issued, but a line was received from the redis server: ${line}");
-      return; 
-    }
-    if(line == null) {
-      Utils.getLogger().error("Received null line");
-      return;
-    }
-    
-    switch(_state) {
-      case START:
-        
-        var fb = line[0];
-        line = line.substring(1);
-        Utils.getLogger().debug("fb = ${fb.toString()}");
-        Utils.getLogger().debug("resp = ${line.toString()}");
-        
-        if (fb == "+") {
-          _completeFirstRequest(true);
-        } else if (fb == "-") {
-          _completeExceptionFirstRequest(new Exception("remote error ${line}"));
-        } else if (fb == ":") {
-          Utils.getLogger().debug("Math.parseInt(resp) = ${Math.parseInt(line)}");
-          
-          // TODO(waltercacau): Maybe check if it is really an integer here? Can parseInt throw an exception
-          _completeFirstRequest([Math.parseInt(line)]);
-          
-        } else if (fb == "*") {
-          _argsLeft = Math.parseInt(line);
-          _state = GET_NEXT_ARGUMENT;
-        } else if (fb == "\$") {
-          int size = Math.parseInt(line);
-          if(size >= 0) {
-            _argsLeft = 1;
-            nextLineSizeIs(size);
-            _state = GET_NEXT_ARGUMENT_CONTENT;
-          } else {
-            _completeFirstRequest([null]);
-          }
-        } else {
-          _completeExceptionFirstRequest(new Exception("Unexpected line received: ${fb}${line}"));
-        }
-        
-        break;
-      
-      case GET_NEXT_ARGUMENT:
-        var fb = line[0];
-        line = line.substring(1);
-        
-        if (fb == "\$") {
-          int size = Math.parseInt(line);
-          if(size >= 0) {
-            nextLineSizeIs(size);
-            _state = GET_NEXT_ARGUMENT_CONTENT;
-          } else {
-            _addNextArgument(null);
-          }
-        } else {
-          _completeExceptionFirstRequest(new Exception("Unexpected line received: ${fb}${line}"));
-        }
-        break;
-      
-      case GET_NEXT_ARGUMENT_CONTENT:
-        _addNextArgument(line);
-        break;
-    }
-  }
-  _addNextArgument(Object arg) {
-    _args.add(arg);
-    _argsLeft--;
-    if(_argsLeft == 0) {
-      _completeFirstRequest(_args);
-      _args = [];
-      _state = START;
-    } else {
-      _state = GET_NEXT_ARGUMENT;
-    }
-  }
-  
-  Future<Object> sendRequest(List<String> params) {
-    Request request = new Request(new Completer<Object>(), params);
-    _requestQueue.add(request);
-    if(_requestQueue.length == 1)
-      _startNextRequest();
-    return request.completer.future;
-  }
-  _startNextRequest() {
-    // TODO(waltercacau): implement it
-  }
 }

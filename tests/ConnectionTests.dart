@@ -8,10 +8,34 @@
 
 connectionTest() {
   Connection conn = new Connection();
+  List<List<String>> keyValuePairs = [
+     ['key', 'va\r\nÀue'],
+     ['henry', 'is cool']
+  ];
+
   conn.connect().then((connected) {
     Expect.equals(true, connected);
-    callbackDone();  
-    conn.close();
+    callbackDone();
+    
+    // SET
+    var doneCount = 0;
+    for(final List<String> pair in keyValuePairs) {
+      conn.SendCommand('SET', pair).then((Object ret) {
+        expect(ret).equals(true);
+        callbackDone();
+        
+        conn.SendCommand('GET', [pair[0]]).then((Object retBack) {
+          expect(retBack.length).equals(1);
+          expect(retBack[0]).equals(pair[1]);
+          callbackDone();
+          doneCount++;
+          if(doneCount == keyValuePairs.length) {
+            conn.close();
+          }
+        });
+        
+      });
+    }
   });
 }
 
@@ -66,7 +90,7 @@ handleDataChunkTest() {
 void main () {
   Utils.setVerboseState();
   group("Connection tests:", () {
-    asyncTest("Test socket connection",1, connectionTest);
+    asyncTest("Test socket connection and set", 5, connectionTest);
     asyncTest("Test socket failed connection",1, connectionFailTest);
     test("Test receiving data chunk", handleDataChunkTest);
   });

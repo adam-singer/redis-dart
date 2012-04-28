@@ -14,6 +14,7 @@ class Connection {
   ByteArray messageBuffer;
   Socket socket;
   Function _onReceiveLine;
+  Function _sendRequest;
   
   Connection([this.serverConfig]) {
     if (serverConfig === null) {
@@ -28,10 +29,20 @@ class Connection {
     receivedChunks = [];
     receivedBytesCount = 0;
     skipCount = 0;
+    
+    // Bundling in the encoderDecoder by default
+    EncoderDecoder encoderDecoder = new EncoderDecoder();
+    encoderDecoder.sendBytes = sendBytes;
+    onReceiveLine = encoderDecoder.handleReceivedLine;
+    sendRequest = encoderDecoder.sendRequest;
   }
   
   set onReceiveLine(void callback(String line, Function nextLineSizeIs)) {
     _onReceiveLine = callback;
+  }
+  
+  set sendRequest(Future<Object> func(List<String> params)) {
+    _sendRequest = func;
   }
 
   // State variables for reading a line according to Regis
@@ -67,7 +78,12 @@ class Connection {
    * Callback for receiving messages.
    */
   _onData() {
-    List currentChunk = socket.inputStream.read(socket.available());
+    int len = socket.available();
+    List currentChunk = new ByteArray(len);
+    int readCount = socket.readList(currentChunk, 0, len);
+    if(readCount != len) {
+      throw 'couldn\'t read all avaiable bytes (${len}), only ${readCount}';
+    }
     handleDataChunk(currentChunk);
   }
   
@@ -160,56 +176,21 @@ class Connection {
     socket.close();
   }
   
-  sendBufferFromOnWrite() => sendBuffer('from OnWrite');
-  sendBuffer(String origin){
-    
-    // When done sending the data null the write. 
-    socket.onWrite = null; 
-  }
-  
-  receiveData() {
-
-  }
   
   String end_data = '\r\n';
-  Future<Object> sendCommand(String message) {
-    // Add data to queue
+  Future<int> sendBytes(List bytes) {
     Completer completer = new Completer();
     socket.onWrite = () {
-      Utils.getLogger().debug('Connection.sendCommand = $message');
-      List m = encodeUtf8("$message");
-      //m.add(0);
-      //m.addAll(encodeUtf8(end_data));
-      //var m = encodeUtf16("$message");
-      
-//      var m = [];
-//      m.addAll(mm);
-//      m.add(0);
-//      m.addAll(encodeUtf8(end_data));
-      
-      Utils.getLogger().debug('Connection.sendCommand = $m');
-      socket.writeList(m, 0, m.length);
+      completer.complete(socket.writeList(bytes, 0, bytes.length));
+      // TODO(waltercacau): How to catch IO errors here?
       socket.onWrite = null;
     };
-    
-    socket.onData = () {
-      var available = socket.available();
-      if (available == 0) {
-        completer.complete(null);
-      }
-      
-      ByteArray buffer = new ByteArray(available);
-      int numBytes = socket.readList(buffer, 0, available);
-      socket.onData = null;
-      
-      
-      String r = decodeUtf8(buffer, 0, numBytes);
-      Utils.getLogger().debug('response = $r');
-      
-      // TODO: decode data here?
-      completer.complete(r);
-    };
-    
     return completer.future;
+  }
+  
+  Future<Object> SendCommand(String cmd, [args = const[]]) {
+    List params = [cmd];
+    params.addAll(args);
+    return _sendRequest(params);
   }
 }

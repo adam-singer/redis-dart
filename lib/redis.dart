@@ -5,4 +5,5 @@
 #source("redis_interfaces.dart");
 #source("utils.dart");
 #source("Connection.dart");
+#source("EncoderDecoder.dart");
 #source("ServerConfig.dart");
