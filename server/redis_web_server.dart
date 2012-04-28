@@ -4,9 +4,11 @@
 #import("../third_party/CrimsonHttp/handlers/HandlersLib.dart");
 #import("dart:io");
 #import("dart:json");
+#import("../lib/redis.dart", prefix:"redis");
 
 ///Simple test server
 main() {
+  redis.Utils.setVerboseState();
   CrimsonHttpServer server = new CrimsonHttpServer();
   
   CrimsonModule sampleModule = new CrimsonModule(server);
@@ -32,18 +34,27 @@ bool matcherFunction(HttpRequest req) {
 }
 
 Future execRedis(HttpRequest req,HttpResponse res,var data) {
-  
+  Completer completer = new Completer();
   var jsonString = """{
         "result" : ["Dart","Java","C#","Python"],
       }""";
+ 
+  redis.Utils.getLogger().debug("execRedis: data = $data");
   
+  sendBackJson() {
+    
   res.outputStream.writeString(jsonString);
+  completer.complete(null);
+  
+
+  };
+  sendBackJson();
 //  var session = data["SESSION"];
 //  if (session != null) {
 //    //res.outputStream.writeString("\nFirst Visit: " + session["first-accessed"]);
 //    //res.outputStream.writeString("\nMost recent Visit: " + session["last-accessed"]);
 //  }
-  return null; 
+  return completer.future; 
 }
 
 Future sayHello(HttpRequest req,HttpResponse res,var data) {
