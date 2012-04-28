@@ -1,14 +1,18 @@
-interface redis {
+#library("redis");
+#import("dart:io");
+#import("dart:utf");
+#import("../third_party/log4dart/LogLib.dart");
+#source("redis.dart");
+#source("utils.dart");
+#source("server_config.dart");
+#source("connection.dart");
+
+class RedisImpl implements Redis {
   
-}
-
-
-class redisImpl implements redis {
-    
   ServerConfig serverConfig;
   Connection connection;
   
-  redisImpl([this.serverConfig]) {
+  RedisImpl([this.serverConfig]) {
     if (serverConfig === null) {
       serverConfig = new ServerConfig();
      }
@@ -46,19 +50,21 @@ class redisImpl implements redis {
 //    return SendCommand ("SAVE");
 //  }
 
+  // ************ String commands ************
+  // http://redis.io/commands#string
 
-  Future<Object> Get(key) {
-    return SendCommand("GET $key\r\n");
+  Future<Object> Get(String key) {
+    return SendCommand("GET", [key]);
   }
   
-  Future<Object> Set(key, value) {
-    return SendCommand("SET ${key} ${value}\r\n");
+  Future<Object> Set(String key, String value) {
+    return SendCommand("SET", [key, value]);
   }
 
   
-  /*
-  Keys Commands
-  */
+  // ************ Keys Commands ************
+  // http://redis.io/commands#generic
+  
   Future<Object> Del(key) {
     var k = Strings.join(key, " ");
     return SendCommand("DEL $k");
