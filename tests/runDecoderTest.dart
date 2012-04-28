@@ -2,84 +2,133 @@
 #import("dart:utf");
 
 void main() {
-  String okStr = "+OK";
-  String getStr = "\$16\r\nmy spaced string\r\n";
-  String listStr = "*4\r\n\$5\r\nWorld\r\n\$5\r\nHello\r\n\$3\r\nbar\r\n\$3\r\nfoo\r\n";
+  int nextLineSizeIsCallsCount = 0; 
+  int lastNextLineSizeIsCallsCount = 0;
+  int lastCallbacksCount = 0; 
+  int callbacksCount = 0;
+  List lastSentBytes = null;
+  expectNotToSend() {
+    if(lastSentBytes != null) {
+      String sentString = decodeUtf8(lastSentBytes);
+      throw 'Expected not to send, but got: ${sentString}';
+    } else {
+      print("Expectation OK: not to send");
+    }
+  }
+  expectToSend(String actual) {
+    if(lastSentBytes == null)
+      throw "No bytes sent!";
+    String expected = decodeUtf8(lastSentBytes);
+    if("${actual}" != "${expected}")
+      throw "${actual} != ${expected}";
+    else
+      print("Expectation OK: sent correct bytes");
+    lastSentBytes = null;
+  }
   Utils.setVerboseState();
-  Decoder decoder = new Decoder(listStr);
-  var i = decoder.decode();
-  Utils.getLogger().debug("listStr = ${i.toString()}");
-  decoder = new Decoder(getStr);
-  i = decoder.decode();
-  Utils.getLogger().debug("getStr = ${i.toString()}");
-  decoder = new Decoder(okStr);
-  i = decoder.decode();
-  Utils.getLogger().debug("okStr = ${i.toString()}");
-}
-
-class Decoder {
-  String data;
-  int line = 0;
-  int char = 0;
-  Decoder(this.data);
   
-  String readline() {
-    char = 0;
-    return data.split('\r\n')[line++];
+  
+  Future<int> fakeSendBytes(List bytes) {
+    if(lastSentBytes != null) {
+      String sentString = decodeUtf8(lastSentBytes);
+      throw 'There are bytes in the test buffer that were not expected: ${sentString}';
+    }
+    lastSentBytes = bytes;
+    Completer<int> completer = new Completer<int>();
+    completer.complete(bytes.length);
+    return completer.future;
+  };
+  Function nextLineSizeIsFuncBuilder(int expectedSize) {
+    return (int size) {
+      nextLineSizeIsCallsCount++;
+      if(size != expectedSize)
+        throw "${size} != ${expectedSize}";
+    };
+  };
+  Function nextLineSizeIsFailIfCalled = (int size){
+    throw "nextLineSizeIs should not have been called";
+  };
+  Function futureCallbackBuilder(Object expected) {
+    return (Object actual) {
+      callbacksCount++;
+      if("${actual}" != "${expected}")
+        throw "${actual} != ${expected}";
+      else
+        print("Expectation OK: callback called correctly");
+    };
+  }
+  Function expectCallbackCountIncrease() {
+    lastCallbacksCount++;
+    if(lastCallbacksCount != callbacksCount)
+      throw "callbackCount: ${callbacksCount} != ${lastCallbacksCount}";
+    else
+      print("Expectation OK: Callback called");
+  }
+  Function expectNextLineSizeIsCallsCountIncrease() {
+    lastNextLineSizeIsCallsCount++;
+    if(lastNextLineSizeIsCallsCount != nextLineSizeIsCallsCount)
+      throw "callbackCount: ${nextLineSizeIsCallsCount} != ${lastNextLineSizeIsCallsCount}";
+    else
+      print("Expectation OK: Callback called");
   }
   
-  String read(int c) {
-    var ret_s = data.split('\r\n')[line].substring(char,c);
-    char += c;
-    return ret_s;
-  }
+  // Building the encoder/decoder
+  EncoderDecoder decoder = new EncoderDecoder();
+  decoder.sendBytes = fakeSendBytes;
   
-  decode() {
-    //Utils.getLogger().debug("data = ${resp.toString()}");
-    String resp = readline();
-    if (resp == null) {
-      throw "resp is null";
-    }
-    
-    if (resp.trim().endsWith("\$-1") || resp.trim().endsWith("*-1")) {
-      return null;
-    }
-    
-    var fb = resp[0];
-    resp = resp.substring(1);
-    Utils.getLogger().debug("fb = ${fb.toString()}");
-    Utils.getLogger().debug("resp = ${resp.toString()}");
-    
-    if (fb == "+") {
-      Utils.getLogger().debug("resp = ${resp.substring(resp.length-2)}");
-      return resp.substring(resp.length-2);
-    }
-    
-    if (fb == "-") {
-      throw "ERR = ${resp}";
-    }
-    
-    if (fb == ":") {
-      Utils.getLogger().debug("Math.parseInt(resp) = ${Math.parseInt(resp)}");
-      return Math.parseInt(resp);
-    }
-    
-    if (fb == "\$") {
-      int c = Math.parseInt(resp);
-      resp = read(c);
-      readline(); // advance to next line
-      return resp;
-    }
-    
-    if (fb == "*") {
-      int j = Math.parseInt(resp);
-      var ret = [];
-      for (int i=0; i<j; i++) {
-        ret.add(decode());
-      }
-      
-      return ret;
-    }
-    
-  }
+  // Sending tree request to exercise queuing
+  decoder.sendRequest(['SET','mykey','myvalue']).then(futureCallbackBuilder(true));
+  expectToSend('*3\r\n\$3\r\nSET\r\n\$5\r\nmykey\r\n\$7\r\nmyvalue\r\n');
+  decoder.sendRequest(['request2']).then(futureCallbackBuilder(['my spaced string']));
+  expectNotToSend();
+  decoder.sendRequest(['request3']).then(futureCallbackBuilder(['World','Hello','bar','foo']));
+  expectNotToSend();
+  
+  decoder.handleReceivedLine('+OK', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  expectToSend('*1\r\n\$8\r\nrequest2\r\n');
+  
+  decoder.handleReceivedLine('*1', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('\$16', nextLineSizeIsFuncBuilder(16)); expectNextLineSizeIsCallsCountIncrease();
+  decoder.handleReceivedLine('my spaced string', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  expectToSend('*1\r\n\$8\r\nrequest3\r\n');
+  
+  decoder.handleReceivedLine('*4', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('\$5', nextLineSizeIsFuncBuilder(5)); expectNextLineSizeIsCallsCountIncrease();
+  decoder.handleReceivedLine('World', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('\$5', nextLineSizeIsFuncBuilder(5)); expectNextLineSizeIsCallsCountIncrease();
+  decoder.handleReceivedLine('Hello', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('\$3', nextLineSizeIsFuncBuilder(3)); expectNextLineSizeIsCallsCountIncrease();
+  decoder.handleReceivedLine('bar', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('\$3', nextLineSizeIsFuncBuilder(3)); expectNextLineSizeIsCallsCountIncrease();
+  decoder.handleReceivedLine('foo', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  expectNotToSend();
+  
+  // Corner cases
+  // À = 2 bytes in UTF8
+  decoder.sendRequest(['request4','À']).then(futureCallbackBuilder([null]));
+  expectToSend('*2\r\n\$8\r\nrequest4\r\n\$2\r\nÀ\r\n');
+  decoder.handleReceivedLine('\$-1', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  
+  decoder.sendRequest(['request5']).then(futureCallbackBuilder([null]));
+  expectToSend('*1\r\n\$8\r\nrequest5\r\n');
+  decoder.handleReceivedLine('*1', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('\$-1', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  
+  decoder.sendRequest(['request6']).handleException(futureCallbackBuilder('Exception: remote error ERROR'));
+  expectToSend('*1\r\n\$8\r\nrequest6\r\n');
+  decoder.handleReceivedLine('-ERROR', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  
+  // Problems in communication
+  decoder.sendRequest(['request7']).handleException(futureCallbackBuilder('Exception: Unexpected line received: ?haha'));
+  expectToSend('*1\r\n\$8\r\nrequest7\r\n');
+  decoder.handleReceivedLine('*1', nextLineSizeIsFailIfCalled);
+  decoder.handleReceivedLine('?haha', nextLineSizeIsFailIfCalled);
+  expectCallbackCountIncrease();
+  
 }

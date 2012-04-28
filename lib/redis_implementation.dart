@@ -5,6 +5,7 @@
 #source("redis.dart");
 #source("utils.dart");
 #source("server_config.dart");
+#source("EncoderDecoder.dart");
 #source("connection.dart");
 
 class RedisImpl implements Redis {
