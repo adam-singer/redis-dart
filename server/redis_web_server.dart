@@ -4,7 +4,7 @@
 #import("../third_party/CrimsonHttp/handlers/HandlersLib.dart");
 #import("dart:io");
 #import("dart:json");
-#import("../lib/redis.dart", prefix:"redis");
+#import("../lib/redis-dart.dart", prefix:"redis");
 //#import("../lib/redis.dart");
 #import("dart:utf");
 ///Simple test server

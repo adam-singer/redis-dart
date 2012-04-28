@@ -1,5 +1,8 @@
 interface Redis default RedisImpl {
 
+	Future<bool> open();
+  Connection get connection();
+
 	// ************ Keys Commands ************
 	// http://redis.io/commands#generic
 

@@ -1,12 +1,12 @@
 #library("command_tests");
 
-#import("../lib/redis.dart");
+#import("../lib/redis-dart.dart");
 #import("dart:io");
 #import('dart:builtin');
 #import('../third_party/testing/unittest/unittest_vm.dart');
 
 fluashAllTest() {
-  redisImpl r = new redisImpl();
+  Redis r = new Redis();
   
   r.open().then((bool connected) {
     Utils.getLogger().debug("connected = $connected");
