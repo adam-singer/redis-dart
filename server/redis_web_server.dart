@@ -35,15 +35,18 @@ bool matcherFunction(HttpRequest req) {
 
 Future execRedis(HttpRequest req,HttpResponse res,var data) {
   Completer completer = new Completer();
-  var jsonString = """{
-        "result" : ["Dart","Java","C#","Python"],
-      }""";
+//  var jsonString = """{
+//        "result" : ["Dart","Java","C#","Python"],
+//      }""";
  
+  Map m = new Map();
+  m["result"] = "some cool result";
+  
   redis.Utils.getLogger().debug("execRedis: data = $data");
   
   sendBackJson() {
-    
-  res.outputStream.writeString(jsonString);
+  var s = JSON.stringify(m);
+  res.outputStream.writeString(s);
   completer.complete(null);
   
 
