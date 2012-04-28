@@ -116,7 +116,7 @@ class Terminal {
 	// Redis Commands
   createJSONAndSendRequest(String cmd, args) {
     Map a = new Map();
-    a['cmd'] = 'get';
+    a['cmd'] = cmd;
     a['args'] = args;
     var o = JSON.stringify(a);
     var request = sendRequest("POST", "/exec", o, processResponse, processResponse);
