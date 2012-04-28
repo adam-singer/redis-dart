@@ -10,14 +10,9 @@
 
 class RedisImpl implements Redis {
   
-  ServerConfig serverConfig;
   Connection connection;
   
   RedisImpl([this.serverConfig]) {
-    if (serverConfig === null) {
-      serverConfig = new ServerConfig();
-     }
-    
     connection = new Connection(serverConfig);
   }
   
@@ -58,8 +53,8 @@ class RedisImpl implements Redis {
     return SendCommand("GET", [key]);
   }
   
-  Future<Object> Set(String key, String value) {
-    return SendCommand("SET", [key, value]);
+  Future<Object> Set(String key, Object value) {
+    return SendCommand("SET", [key, value.toString()]);
   }
 
   

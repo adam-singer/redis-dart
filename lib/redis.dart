@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 interface Redis default RedisImpl {
 
 	// ************ Keys Commands ************
@@ -132,15 +131,3 @@ interface Redis default RedisImpl {
   
   Future<Object> Time();
 }
-
-=======
-#library("redis");
-#import("dart:io");
-#import("dart:utf");
-#import("../third_party/log4dart/LogLib.dart");
-#source("redis_interfaces.dart");
-#source("utils.dart");
-#source("Connection.dart");
-#source("EncoderDecoder.dart");
-#source("ServerConfig.dart");
->>>>>>> 1a4f8f0dd8113a712cb0659f9d4a1022afeda78f
