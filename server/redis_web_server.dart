@@ -5,7 +5,7 @@
 #import("dart:io");
 #import("dart:json");
 #import("../lib/redis.dart", prefix:"redis");
-
+#import("dart:utf");
 ///Simple test server
 main() {
   redis.Utils.setVerboseState();
@@ -15,9 +15,10 @@ main() {
   sampleModule.handlers
                     .addEndpoint(new Favicon("./test/favicon.ico"))                   
                     .addFilter(new CookieSession())
-                    .addEndpoint(new Route("/hello","GET",sayHello))
+                    //.addFilter(new PostDataFilter())
+                    //.addEndpoint(new Route("/hello","GET",sayHello))
                     .addEndpoint(new Route("/exec","POST",execRedis))
-                    .addEndpoint(new Route.withMatcher(matcherFunction,"helloMatcher",sayHello))
+                    //.addEndpoint(new Route.withMatcher(matcherFunction,"helloMatcher",sayHello))
                     .addEndpoint(new StaticFile("./public"));
 //  .addEndpoint(new StaticFile("./public/TerminalRedis.html"))
 //  .addEndpoint(new StaticFile("./public/Terminal.dart"))
@@ -39,17 +40,35 @@ Future execRedis(HttpRequest req,HttpResponse res,var data) {
 //        "result" : ["Dart","Java","C#","Python"],
 //      }""";
  
+//  req.endD
+  
   Map m = new Map();
   m["result"] = "some cool result";
   
   redis.Utils.getLogger().debug("execRedis: data = $data");
   
+  //Map clientData = JSON.parse(data);
+  //redis.Utils.getLogger().debug("clientData: data = ${clientData.toString()}");
+  
   sendBackJson() {
   var s = JSON.stringify(m);
   res.outputStream.writeString(s);
-  completer.complete(null);
   
-
+  
+  req.inputStream.onData = () {
+    //int a = req.inputStream.available();
+    while (req.inputStream.available() > 0) {
+      int a = req.inputStream.available();
+      List buff = new List(a);
+      req.inputStream.readInto(buff);
+      print(buff);
+      String dec = decodeUtf8(buff);
+      print ("dec = ${dec}"); // dec has the posted message. 
+    }
+    
+    completer.complete(null);
+  };
+  //completer.complete(null);
   };
   sendBackJson();
 //  var session = data["SESSION"];
