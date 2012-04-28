@@ -19,7 +19,8 @@ class Terminal {
 			'help': helpCommand,
 			'auth': authCommand,
 			'info': infoCommand,
-			'clear': clearCommand
+			'clear': clearCommand,
+			'uri': uriCommand
     };
     
     var history = [];
@@ -113,12 +114,21 @@ class Terminal {
     }, false);
   }
 	// Redis Commands
+  createJSONAndSendRequest(String cmd, args) {
+    Map a = new Map();
+    a['cmd'] = 'get';
+    a['args'] = args;
+    var o = JSON.stringify(a);
+    var request = sendRequest("POST", "http://localhost:8082/exec", o, processResponse, processResponse);
+    return request;
+  }
+  
 	getCommand(var cmd, var args) {
 	  if (args.length != 1) {
       var text = "<div><span>ERR wrong number of arguments for 'get' command</span></div>";
       outputText(text);
     } else {
-      
+      var o = createJSONAndSendRequest('get',args);
     }
 	}
 	setCommand(var cmd, var args) {
@@ -126,19 +136,7 @@ class Terminal {
 	    var text = "<div><span>ERR wrong number of arguments for 'set' command</span></div>";
 	    outputText(text);
 	  } else {
-	   Map a = new Map();
-	   a['cmd'] ='set';
-	   a['args'] = args;
-	   JsonObject o = new JsonObject.fromMap(a);
-	  
-	   // send stuff
-	  
-	   StringBuffer sb = new StringBuffer();
-	   sb.add('<span>');
-	   sb.add('OK');
-	   sb.add('</span>');
-	 
-	   outputText(sb.toString());
+	   var o = createJSONAndSendRequest('set',args); 
 	  }
 	}
 	
@@ -151,18 +149,8 @@ class Terminal {
       var text = "<div><span>ERR wrong number of arguments for 'getset' command</span></div>";
       outputText(text);
     } else {
-     Map a = new Map();
-     a['cmd'] ='set';
-     a['args'] = args;
-     JsonObject o = new JsonObject.fromMap(a);
-    
-     // send stuff
-    
-     // Return value
-     StringBuffer sb = new StringBuffer();
-    
+      var req = createJSONAndSendRequest('getset',args); 
    
-     outputText(sb.toString());
     }
 	}
 	authCommand(var cmd, var args) {
@@ -170,7 +158,7 @@ class Terminal {
       var text = "<div><span>ERR wrong number of arguments for 'auth' command</span></div>";
       outputText(text);
     } else {
-      
+      var req = createJSONAndSendRequest('auth',args); 
     }
 	}
 	infoCommand(var cmd, var args) {
@@ -178,8 +166,13 @@ class Terminal {
       var text = "<div><span>ERR wrong number of arguments for 'info' command</span></div>";
       outputText(text);
     } else {
-      
+      var req = createJSONAndSendRequest('info',args); 
     }
+	}
+	
+	uriCommand(var cmd, var args) {
+	  var request = sendRequest("POST", "http://localhost:8082/exec", "", processResponse, processResponse);
+	  
 	}
 	
 	clearCommand(var cmd, var args) {
@@ -194,5 +187,27 @@ class Terminal {
 		});
 		sb.add('</div>');
 		outputText(sb.toString());
+	}
+	
+	XMLHttpRequest sendRequest(String method, String url, var data, var onSuccess, var onError) {
+    XMLHttpRequest request = new XMLHttpRequest();
+    request.on.readyStateChange.add((Event event) {
+      if (request.readyState != 4) return;
+      if (request.status == 200) {
+        print(request.responseText);
+        onSuccess(JSON.parse(request.responseText));
+      } else {
+        onError();
+      }
+    });
+    
+    request.open(method, url, true);
+    request.setRequestHeader('Content-Type', 'application/json;charset=UTF=8');
+    request.send();
+    return request;
+  }
+	
+	processResponse(data) {
+	  outputText("<span>"+data['result']+"</span>");
 	}
 }
