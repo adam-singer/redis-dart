@@ -3,6 +3,7 @@
 #import("../third_party/CrimsonHttp/core/CrimsonLib.dart");
 #import("../third_party/CrimsonHttp/handlers/HandlersLib.dart");
 #import("dart:io");
+#import("dart:json");
 
 ///Simple test server
 main() {
@@ -13,9 +14,13 @@ main() {
                     .addEndpoint(new Favicon("./test/favicon.ico"))                   
                     .addFilter(new CookieSession())
                     .addEndpoint(new Route("/hello","GET",sayHello))
+                    .addEndpoint(new Route("/exec","POST",execRedis))
                     .addEndpoint(new Route.withMatcher(matcherFunction,"helloMatcher",sayHello))
                     .addEndpoint(new StaticFile("./public"));
-  
+//  .addEndpoint(new StaticFile("./public/TerminalRedis.html"))
+//  .addEndpoint(new StaticFile("./public/Terminal.dart"))
+//  .addEndpoint(new StaticFile("./public/TerminalRedis.dart"));
+//  
 
   server.modules["*"] = sampleModule;
    
@@ -24,6 +29,21 @@ main() {
 
 bool matcherFunction(HttpRequest req) {
   return req.path.endsWith("matcher");
+}
+
+Future execRedis(HttpRequest req,HttpResponse res,var data) {
+  
+  var jsonString = """{
+        "result" : ["Dart","Java","C#","Python"],
+      }""";
+  
+  res.outputStream.writeString(jsonString);
+//  var session = data["SESSION"];
+//  if (session != null) {
+//    //res.outputStream.writeString("\nFirst Visit: " + session["first-accessed"]);
+//    //res.outputStream.writeString("\nMost recent Visit: " + session["last-accessed"]);
+//  }
+  return null; 
 }
 
 Future sayHello(HttpRequest req,HttpResponse res,var data) {
