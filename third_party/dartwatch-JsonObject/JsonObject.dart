@@ -4,8 +4,6 @@
 // http://github.com/chrisbu/dartwatch-JsonObject
 
 
-#library("JsonObject");
-#import("dart:json");
 
 ///JsonObject allows .property name access to JSON by using
 ///noSuchMethod.

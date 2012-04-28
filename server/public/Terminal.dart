@@ -1,3 +1,5 @@
+
+//
 class Terminal {
 
   final cmdLineContainer;
@@ -17,8 +19,8 @@ class Terminal {
 			'help': helpCommand,
 			'auth': authCommand,
 			'info': infoCommand,
-			'time': timeCommand,	
-			'quit': quitCommand,
+			'clear': clearCommand,
+			'uri': uriCommand
     };
     
     var history = [];
@@ -98,7 +100,7 @@ class Terminal {
           cmdline.trim();
           args = cmdline.split(' ');
           cmd = args[0].toLowerCase();
-          args = args.removeRange(0, 1);
+          args.removeRange(0, 1);
         }
         
         if (CMDS[cmd] is Function) {
@@ -112,13 +114,70 @@ class Terminal {
     }, false);
   }
 	// Redis Commands
-	getCommand(var cmd, var args) {}
-	setCommand(var cmd, var args) {}
-	getSetCommand(var cmd, var args) {}
-	authCommand(var cmd, var args) {}
-	infoCommand(var cmd, var args) {}
-	timeCommand(var cmd, var args) {}
-	quitCommand(var cmd, var args) {}
+  createJSONAndSendRequest(String cmd, args) {
+    Map a = new Map();
+    a['cmd'] = 'get';
+    a['args'] = args;
+    var o = JSON.stringify(a);
+    var request = sendRequest("POST", "/exec", o, processResponse, processResponse);
+    return request;
+  }
+  
+	getCommand(var cmd, var args) {
+	  if (args.length != 1) {
+      var text = "<div><span>ERR wrong number of arguments for 'get' command</span></div>";
+      outputText(text);
+    } else {
+      var o = createJSONAndSendRequest('get',args);
+    }
+	}
+	setCommand(var cmd, var args) {
+	  if (args.length != 2) {
+	    var text = "<div><span>ERR wrong number of arguments for 'set' command</span></div>";
+	    outputText(text);
+	  } else {
+	   var o = createJSONAndSendRequest('set',args); 
+	  }
+	}
+	
+	outputText(String text) {
+	  output.insertAdjacentElement('beforeEnd', new Element.html(text));
+	}
+	
+	getSetCommand(var cmd, var args) {
+	  if (args.length != 2) {
+      var text = "<div><span>ERR wrong number of arguments for 'getset' command</span></div>";
+      outputText(text);
+    } else {
+      var req = createJSONAndSendRequest('getset',args); 
+   
+    }
+	}
+	authCommand(var cmd, var args) {
+	  if (args.length != 1) {
+      var text = "<div><span>ERR wrong number of arguments for 'auth' command</span></div>";
+      outputText(text);
+    } else {
+      var req = createJSONAndSendRequest('auth',args); 
+    }
+	}
+	infoCommand(var cmd, var args) {
+	  if (args.length != 0) {
+      var text = "<div><span>ERR wrong number of arguments for 'info' command</span></div>";
+      outputText(text);
+    } else {
+      var req = createJSONAndSendRequest('info',args); 
+    }
+	}
+	
+	uriCommand(var cmd, var args) {
+	  var request = sendRequest("POST", "http://localhost:8082/exec", "", processResponse, processResponse);
+	  
+	}
+	
+	clearCommand(var cmd, var args) {
+	  output.innerHTML = '';
+	}
 
 	helpCommand(var cmd, var args) {
 		StringBuffer sb = new StringBuffer();
@@ -127,6 +186,28 @@ class Terminal {
 			sb.add('${k}<br/>');
 		});
 		sb.add('</div>');
-		output.insertAdjacentHTML('beforeEnd', sb.toString());
+		outputText(sb.toString());
+	}
+	
+	XMLHttpRequest sendRequest(String method, String url, var data, var onSuccess, var onError) {
+    XMLHttpRequest request = new XMLHttpRequest();
+    request.on.readyStateChange.add((Event event) {
+      if (request.readyState != 4) return;
+      if (request.status == 200) {
+        print(request.responseText);
+        onSuccess(JSON.parse(request.responseText));
+      } else {
+        onError();
+      }
+    });
+    
+    request.open(method, url, true);
+    request.setRequestHeader('Content-Type', 'application/json;charset=UTF=8');
+    request.send(data);
+    return request;
+  }
+	
+	processResponse(data) {
+	  outputText("<span>"+data['result']+"</span>");
 	}
 }
