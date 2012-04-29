@@ -20,7 +20,7 @@ class Terminal {
 			'auth': authCommand,
 			'info': infoCommand,
 			'clear': clearCommand,
-			'uri': uriCommand
+			'keys': keysCommand
     };
     
     var history = [];
@@ -170,10 +170,14 @@ class Terminal {
     }
 	}
 	
-	uriCommand(var cmd, var args) {
-	  var request = sendRequest("POST", "http://localhost:8082/exec", "", processResponse, processResponse);
-	  
-	}
+	keysCommand(var cmd, var args) {
+    if (args.length != 1) {
+      var text = "<div><span>ERR wrong number of arguments for 'keys' command</span></div>";
+      outputText(text);
+    } else {
+      var req = createJSONAndSendRequest('keys',args); 
+    }
+  }
 	
 	clearCommand(var cmd, var args) {
 	  output.innerHTML = '';

@@ -1,0 +1,4 @@
+redis-dart
+
+A Dart library for the Redis key-value store.
+
