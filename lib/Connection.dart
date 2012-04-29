@@ -7,11 +7,11 @@ int LF = 10;
  * doing line buffering.
  */
 class Connection {
-  ByteArray lengthBuffer;
   ServerConfig serverConfig;
-  ByteArray bufferToSend;
+  List<List> toSendBytesList;
+  List<Completer<int>> toSendCompleterList;
+  int currentOffsetSent;
   Queue<Object> sendQueue;
-  ByteArray messageBuffer;
   Socket socket;
   Function _onReceiveLine;
   Function _sendRequest;
@@ -27,7 +27,10 @@ class Connection {
     // Default values
     _lastWasCR = false;
     receivedChunks = [];
+    toSendBytesList = [];
+    toSendCompleterList = [];
     receivedBytesCount = 0;
+    currentOffsetSent = 0;
     skipCount = 0;
     
     // Bundling in the encoderDecoder by default
@@ -83,6 +86,8 @@ class Connection {
     int readCount = socket.readList(currentChunk, 0, len);
     if(readCount != len) {
       throw 'couldn\'t read all avaiable bytes (${len}), only ${readCount}';
+    } else {
+      Utils.getLogger().debug('Read ${len} bytes from Redis');
     }
     handleDataChunk(currentChunk);
   }
@@ -179,13 +184,31 @@ class Connection {
   
   String end_data = '\r\n';
   Future<int> sendBytes(List bytes) {
-    Completer completer = new Completer();
-    socket.onWrite = () {
-      completer.complete(socket.writeList(bytes, 0, bytes.length));
-      // TODO(waltercacau): How to catch IO errors here?
-      socket.onWrite = null;
-    };
+    Completer<int> completer = new Completer<int>();
+    toSendBytesList.add(bytes);
+    toSendCompleterList.add(completer);
+    socket.onWrite = _handleWriteAvaiable;
     return completer.future;
+  }
+  
+  
+  void _handleWriteAvaiable() {
+    List bytes = toSendBytesList[0];
+    // TODO: maybe catch IO errors here.
+    int written = socket.writeList(bytes, currentOffsetSent, bytes.length-currentOffsetSent);
+    Utils.getLogger().debug('Written ${written} bytes to Redis');
+    currentOffsetSent += written;
+    if(currentOffsetSent == bytes.length) {
+      toSendCompleterList[0].complete(currentOffsetSent);
+      toSendBytesList.removeRange(0, 1);
+      toSendCompleterList.removeRange(0, 1);
+      currentOffsetSent = 0;
+      if(toSendBytesList.length == 0) {
+        socket.onWrite = null;
+        return;
+      }
+    }
+    socket.onWrite = _handleWriteAvaiable;
   }
   
   Future<Object> SendCommand(String cmd, [args = const[]]) {

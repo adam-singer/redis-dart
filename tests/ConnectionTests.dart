@@ -9,12 +9,19 @@
 connectionTest() {
   final Connection conn = new Connection();
   String unsetKey = 'REALLY_UNKNOWN_KEY_THAT_SHOULD_NOT_BE_SET_IN_REDIS';
+  int bigStringLen = 1000000;
+  StringBuffer bigStringBuilder = new StringBuffer();
+  for(int i=0;i<bigStringLen;i++) {
+    bigStringBuilder.add(i%2==0?'A':'B');
+  }
+  
   List<List<String>> keyValuePairs = [
      ['key', 'va\r\nÀue'],
      ['henry', 'is cool'],
      ['empty', ''],
      ['pushingIt','Iñtërnâtiônàlizætiøn'],
-     ['Iñtërnâtiônàlizætiøn','i18n']
+     ['Iñtërnâtiônàlizætiøn','i18n'],
+     ['buildString', bigStringBuilder.toString()]
   ];
 
   conn.connect().then((connected) {
