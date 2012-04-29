@@ -19,29 +19,28 @@ class RedisImpl implements Redis {
   // ************ Keys Commands ************
   // http://redis.io/commands#generic
   
-  Future<Object> Del(key) {
-    var k = Strings.join(key, " ");
-    return connection.SendCommand("DEL $k");
+  Future<Object> Del(List<String> keys) {
+    return connection.SendCommand("DEL", [keys]);
   }
   
   Future<Object> Dump(key) {
-    return connection.SendCommand("DUMP $key");
+    return connection.SendCommand("DUMP", [key]);
   }
   
   Future<Object> Exists(key) {
-    return connection.SendCommand("EXISTS $key");
+    return connection.SendCommand("EXISTS", [key]);
   }
   
   Future<Object> Expire(key, seconds) {
-    return connection.SendCommand("EXPIRE $key $seconds");
+    return connection.SendCommand("EXPIRE", [key, seconds]);
   }
   
   Future<Object> Expireat(key, timestamp) {
-    return connection.SendCommand("EXPIREAT $key $timestamp");
+    return connection.SendCommand("EXPIREAT", [key, timestamp]);
   }
   
   Future<Object> Keys(pattern) {
-    return connection.SendCommand("KEYS $pattern");
+    return connection.SendCommand("KEYS", [pattern]);
   }
   
   Future<Object> Migrate(host, port, key, destination_db, timeout) {
