@@ -7,35 +7,50 @@
 #import('../third_party/testing/unittest/unittest_vm.dart');
 
 connectionTest() {
-  Connection conn = new Connection();
+  final Connection conn = new Connection();
+  String unsetKey = 'REALLY_UNKNOWN_KEY_THAT_SHOULD_NOT_BE_SET_IN_REDIS';
   List<List<String>> keyValuePairs = [
      ['key', 'va\r\nÀue'],
-     ['henry', 'is cool']
+     ['henry', 'is cool'],
+     ['empty', ''],
+     ['pushingIt','Iñtërnâtiônàlizætiøn'],
+     ['Iñtërnâtiônàlizætiøn','i18n']
   ];
 
   conn.connect().then((connected) {
-    Expect.equals(true, connected);
-    callbackDone();
+    int remaningCount = 2*keyValuePairs.length+1;
+    int doneCount = 0;
+    internalCallbackDone() {
+      doneCount++;
+      if(doneCount == remaningCount) {
+        conn.close();
+        callbackDone();
+      }
+    }
     
+    Expect.equals(true, connected);
+    final List<String> keyList = [];
+    final List<String> valueList = [];
     // SET
-    var doneCount = 0;
     for(final List<String> pair in keyValuePairs) {
+      keyList.add(pair[0]);
+      valueList.add(pair[1]);
       conn.SendCommand('SET', pair).then((Object ret) {
         expect(ret).equals(true);
-        callbackDone();
-        
-        conn.SendCommand('GET', [pair[0]]).then((Object retBack) {
-          expect(retBack.length).equals(1);
-          expect(retBack[0]).equals(pair[1]);
-          callbackDone();
-          doneCount++;
-          if(doneCount == keyValuePairs.length) {
-            conn.close();
-          }
-        });
-        
+        internalCallbackDone();
+      });
+      conn.SendCommand('GET', [pair[0]]).then((List retBack) {
+        expect(retBack).equalsCollection([pair[1]]);
+        internalCallbackDone();
       });
     }
+    keyList.add(unsetKey);
+    valueList.add(null);
+    conn.SendCommand('MGET', keyList).then((List retBack) {
+      expect(retBack).equalsCollection(valueList);
+      internalCallbackDone();
+    });
+    
   });
 }
 
@@ -90,7 +105,7 @@ handleDataChunkTest() {
 void main () {
   Utils.setVerboseState();
   group("Connection tests:", () {
-    asyncTest("Test socket connection and set", 5, connectionTest);
+    asyncTest("Test socket connection and set", 1, connectionTest);
     asyncTest("Test socket failed connection",1, connectionFailTest);
     test("Test receiving data chunk", handleDataChunkTest);
   });
