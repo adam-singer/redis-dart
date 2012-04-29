@@ -1,4 +1,4 @@
-#import("../lib/redis.dart");
+#import("../lib/redis-dart.dart");
 #import("dart:utf");
 
 void main() {

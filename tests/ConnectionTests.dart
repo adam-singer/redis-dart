@@ -1,6 +1,6 @@
 #library("connection_tests");
 
-#import("../lib/redis.dart");
+#import("../lib/redis-dart.dart");
 #import("dart:io");
 #import("dart:utf");
 #import('dart:builtin');

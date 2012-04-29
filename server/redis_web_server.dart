@@ -4,7 +4,7 @@
 #import("../third_party/CrimsonHttp/handlers/HandlersLib.dart");
 #import("dart:io");
 #import("dart:json");
-#import("../lib/redis.dart", prefix:"redis");
+#import("../lib/redis-dart.dart", prefix:"redis");
 //#import("../lib/redis.dart");
 #import("dart:utf");
 ///Simple test server
@@ -74,6 +74,21 @@ Future execRedis(HttpRequest req,HttpResponse res,var data) {
     String cmd = commands["cmd"];
     redis.Connection conn;
     switch(cmd) {
+      case "keys":
+        conn = new redis.Connection();
+        conn.connect().then((connected) {
+          if (connected == true) {
+            conn.SendCommand('KEYS', commands["args"]).then((ret) {
+              m["result"] = ret;
+              var retStr = JSON.stringify(m);
+              
+              res.outputStream.writeString(retStr);
+              completer.complete(null);
+            });
+          }
+        });
+        break;
+        
       case "get":
         conn = new redis.Connection();
         conn.connect().then((connected) {
